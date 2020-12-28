@@ -1,0 +1,14 @@
+trigger:
+  - master
+  - staging
+  - dev
+
+variables:
+  version: "0.1.0"
+
+pool:
+  vmImage: "ubuntu-latest"
+
+steps:
+  - script: echo No pipeline has been set yet
+    displayName: "Run a one-line script"
