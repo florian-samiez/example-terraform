@@ -5,50 +5,46 @@ locals {
 }
 
 terraform {
-    required_providers {
-        azurerm = {
-            source = "hashicorp/azurerm"
-            version = ">=2.26"
-        }
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = ">=2.26"
     }
-}
-
-resource "random_password" "sql_server_password" {
-    length = 16
-    special = true
-    override_special = "_%@"
+  }
 }
 
 provider "azurerm" {
-    features {}
+  features {
+    key_vault {
+      purge_soft_delete_on_destroy = true
+    }
+  }
 }
 
 resource "azurerm_resource_group" "rg" {
-    name = "fsz-udrone-${local.env}"
-    location = "francecentral"
+  name     = "fsz-udrone-${local.env}"
+  location = "francecentral"
 }
 
 resource "azurerm_storage_account" "sa" {
-    name = "fszudrone${local.env}sa"
-    resource_group_name = azurerm_resource_group.rg.name
-    location = azurerm_resource_group.rg.location
-    account_tier = "Standard"
-    account_replication_type = "LRS"
+  name                     = "fszudrone${local.env}sa"
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = azurerm_resource_group.rg.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 }
 
-resource "azurerm_sql_server" "sqlserver" {
-    name = "fsz-udrone-${local.env}-sqlsrv"
-    version = "12.0"
-    resource_group_name = azurerm_resource_group.rg.name
-    location = azurerm_resource_group.rg.location
-    administrator_login = "fsamiez"
-    administrator_login_password = random_password.sql_server_password.result
+module "keyvault" {
+  source   = "./keyvault"
+  location = azurerm_resource_group.rg.location
+  rg_name  = azurerm_resource_group.rg.name
+  env      = local.env
 }
 
-resource "azurerm_sql_database" "sqldatabase" {
-    name = "fsz-udrone-${local.env}-sqldb"
-    resource_group_name = azurerm_resource_group.rg.name
-    location = azurerm_resource_group.rg.location
-    server_name = azurerm_sql_server.sqlserver.name
-    edition = "Basic"
+module "database" {
+  source           = "./database"
+  env              = local.env
+  rg_name          = azurerm_resource_group.rg.name
+  rg_location      = azurerm_resource_group.rg.location
+  sql_srv_password = module.keyvault.fsamiez_sqlsrv_password
 }
